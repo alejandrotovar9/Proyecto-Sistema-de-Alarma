@@ -73,9 +73,6 @@ char url_string[512] = "https://api.telegram.org/bot"; //URL para la API de Tele
 /* evento FreeRTOS para señalizar que estamos conectados*/
 static EventGroupHandle_t s_wifi_event_group;
 
-/* The event group allows multiple bits for each event, but we only care about two events:
- * - we are connected to the AP with an IP
- * - we failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
@@ -110,8 +107,7 @@ extern const char telegram_certificate_pem_end[]   asm("_binary_telegram_certifi
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
-    //Firstly, when the Wi-Fi events (WIFI_EVENT and WIFI_EVENT_STA_START) occur, we connect the ESP32 with the AP. We use the function 
-    //esp_wifi_connect() to connect the board with the AP.
+  
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
@@ -168,9 +164,6 @@ void wifi_init_sta(void)
         .sta = {
             .ssid = EXAMPLE_ESP_WIFI_SSID,
             .password = EXAMPLE_ESP_WIFI_PASS,
-            /* Setting a password implies station will connect to all security modes including WEP/WPA.
-             * However these modes are deprecated and not advisable to be used. Incase your Access point
-             * doesn't support WPA2, these mode can be enabled by commenting below line */
 	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
         },
     };
@@ -180,23 +173,20 @@ void wifi_init_sta(void)
 
     ESP_LOGI(TAG, "wifi_init_sta finished."); //Fin de la inicializacion
 
-    /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
-     * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
+    /* Esperandoa si la conexion se realizo exitosamente */
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
             pdFALSE,
             portMAX_DELAY);
 
-    /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
-     * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Conectado en modo estacion a AP SSID:%s password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
         connect_flag = 1;
 
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
+        ESP_LOGI(TAG, "Fallo al conectarse a SSID:%s, password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
@@ -211,8 +201,8 @@ void wifi_init_sta(void)
 //------------------------------------MANEJO DE EVENTOS HTTP-----------------------
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
-    static char *output_buffer;  // Buffer to store response of http request from event handler
-    static int output_len;       // Stores number of bytes read
+    static char *output_buffer;  // Buffer para guardar respuesta del http handler
+    static int output_len;    
     //Switch para posibles eventos
     switch(evt->event_id) {
         case HTTP_EVENT_REDIRECT:
@@ -232,12 +222,8 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
             break;
         case HTTP_EVENT_ON_DATA:
             ESP_LOGD(TAG1, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            /*
-             *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
-             *  However, event handler can also be used in case chunked encoding is used.
-             */
+           
             if (!esp_http_client_is_chunked_response(evt->client)) {
-                // If user_data buffer is configured, copy the response into the buffer
                 if (evt->user_data) {
                     memcpy(evt->user_data + output_len, evt->data, evt->data_len);
                 } else {
@@ -258,7 +244,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
         case HTTP_EVENT_ON_FINISH:
             ESP_LOGD(TAG1, "HTTP_EVENT_ON_FINISH");
             if (output_buffer != NULL) {
-                // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
+                //  Uncomment the below line to print the accumulated response
                 // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
                 free(output_buffer);
                 output_buffer = NULL;
@@ -316,18 +302,17 @@ static void buzzer(void *arg){
 static void https_telegram_sendMessage_perform_post(char texto[512])
 {
     
-	/* Format for sending messages
+	/* Formato
 	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=[CHANNEL_NAME]&text=[MESSAGE_TEXT]
-	For public groups you can use
+	Grupos publicos
 	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=@GroupName&text=hello%20world
-	For private groups you have to use the chat id (which also works with public groups)
+	Grupos privados
 	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=-1234567890123&text=hello%20world
-	You can add your chat_id or group name, your api key and use your browser to send those messages
 	The %20 is the hexa for the space
 	*/
 
 //------------------Inicializacion-----------------------
-    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
+    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer para respuesta HTTP
     //int content_length = 0;
     //LIMPIO EL URL
     char url[512] = "";
@@ -340,7 +325,7 @@ static void https_telegram_sendMessage_perform_post(char texto[512])
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .event_handler = _http_event_handler,
         .cert_pem = telegram_certificate_pem_start,
-        .user_data = output_buffer,        // Pass address of local buffer to get response
+        .user_data = output_buffer,        
     };
 //------------------------COMANDO POST------------------------------------
 
@@ -359,7 +344,7 @@ static void https_telegram_sendMessage_perform_post(char texto[512])
     esp_http_client_set_url(client, url); //URL FINAL
 
 
-	/*Here you add the text and the chat id
+	/*Aqui se añade el texto y el chat id
 	 * The format for the json for the telegram request is: 
      {"chat_id":123456789,"text":"Here goes the message"}
 	  */
@@ -417,9 +402,6 @@ static void http_test_task1(void *pvParameters) {
 
 static void http_test_task2(void *pvParameters) {
 
-
-    /* Creating the string of the url*/
-    // You concatenate the host with the Token so you only have to write the method
 
     ESP_LOGW(TAG1, "Espera 2 segundos antes de comenzar TASK2...");
     vTaskDelay(2000 / portTICK_PERIOD_MS);
