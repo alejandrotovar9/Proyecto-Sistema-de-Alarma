@@ -13,5 +13,6 @@ Things to be added to the project:
 -Dedicated App to use instead of Telegram.
 -Protocols of saving new configurations in case system gets disconnected.
 -Security method in case the RF+PIR sensor gets stolen or disconnected.
+-Reorder the code in groups using differente .c and .h files for the different blocks of code.
 
 
