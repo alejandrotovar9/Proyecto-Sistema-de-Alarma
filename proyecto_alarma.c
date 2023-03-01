@@ -48,7 +48,6 @@ static const char *TAG4 = "Areas-Sensores";
 char url_string[512] = "https://api.telegram.org/bot"; //URL para la API de Telegram
 
 //Chat ID
-//Chat ID para grupo de telegram "Grupo de Alarma": 1001819842287
 #define chat_ID1 "YOUR-CHATID" //ID del grupo de Telegram para la alarma de la E.I.E UCV
 
 //Constantes para pines de entrada y salida
